@@ -26,33 +26,52 @@ class Lexer(object):
     )
     
     reserved_keywords = (
-        'ABSTRACT', 'BOOLEAN'
-        
+        'ABSTRACT', 'BOOLEAN', 'INTERFACE', 'STATIC', 'BOOLEAN', 'EXTENDS',
+        'LONG', 'SUPER', 'BYTE', 'FINAL', 'NATIVE', 'SYNCHRONIZED', 'CHAR',
+        'FLOAT', 'PACKAGE', 'THROWS', 'CLASS', 'GOTO', 'PRIVATE', 'TRANSIENT',
+        'CONST', 'IMPLEMENTS', 'PROTECTED', 'VOLATILE', 'DOUBLE', 'IMPORT',
+        'PUBLIC', 'ENUM', 'INT', 'SHORT'
     )
     
     tokens = (
         "ID",
         
-        'LINE_TERM',
-        
         'COMMENT', 'BLOCK_COMMENT', 'REGEX',
         
-        "LPAREN", "RPAREN",
-        "LBRACE", "RBRACE",
-        "LBRACKET", "RBRACKET",
-        "COMMA", "PERIOD",
-        "SEMI", "COLON",
+        # Delimeters
+        "LINE_TERMINATOR",              # One of LF, CR, LS, PS, see 7.3 
     
-        'CONDOP',
+        # Punctuators
+        'LBRACE', 'RBRACE',             # {  }
+        'LPAREN', 'RPAREN',             # (  )
+        'LBRACKET', 'RBRACKET',         # [  ]
+        'PERIOD', 'SEMI', 'COMMA',      # .  ;  ,
+        'LT', 'GT',                     # <  >
+        'LE', 'GE',                     # <=  >=
+        'EQ', 'NE',                     # ==  !=
+        'EQT',  'NET',                  # ===  !==
+        'PLUS', 'MINUS',                # +  -
+        'TIMES', 'MOD',                 # *  %
+        'INCR', 'DECR',                 # ++  --
+        'LSHIFT', 'RSHIFT', 'URSHIFT',  # <<  >>  >>>
+        'AND', 'OR', 'XOR', 'LNOT',     # &  |  ^  !
+        'NOT', 'LAND', 'LOR',           # ~  &&  ||
+        'CONDOP', 'COLON',              # ?  :
+        'EQUALS', 'PLUS_EQUALS',        # =  +=
+        'MINUS_EQUALS', 'TIMES_EQUALS', # -=  *=
+        'MOD_EQUALS', 'LSHIFT_EQUALS',  # %=  <<=
+        'RSHIFT_EQUALS',                # >>=
+        'URSHIFT_EQUALS',               # >>>=
+        'AND_EQUALS', 'OR_EQUALS',      # &=  |=
+        'XOR_EQUALS',                   # ^=
         
-        'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'MOD', 'OR', 'AND', 'NOT', 'XOR',
-        'LSHIFT', 'RSHIFT', 'URSHIFT', 'LOR', 'LAND', 'LNOT', 'LT', 'GT', 'LE',
-        'GE', 'EQ', 'NE', 'EQT', 'NET', 
-        'INCR_LBREAK', 'DECR_LBREAK','INCR', 'DECR', 
-        'TIMES_EQUALS', 'DIVIDE_EQUALS', 'MOD_EQUALS', 'PLUS_EQUALS', 'MINUS_EQUALS',
-        'LSHIFT_EQUALS', 'RSHIFT_EQUALS', 'URSHIFT_EQUALS', 'AND_EQUALS', 'NOT_EQUALS',
-        'OR_EQUALS', "EQUALS", "MULTIPLY",
+        'DIVIDE', 'DIVIDE_EQUALS',      # /  /=
+        
+        # Separate tokens for postfix usage with [no line-terminator]
+        'INCR_NO_LT', 'DECR_NO_LT',     # [no line-terminator] ++ --
+        
     
+        # Types
         "STRING_LITERAL",
         "INTEGER",
         "FLOAT",        
@@ -78,27 +97,6 @@ class Lexer(object):
     
     block_comment = r'/\*[^*]*\*+([^/*][^*]*\*+)*/'
 
-
-    def __init__(self,):
-        self._prepare_tokens()
-        self.lexer = None
-        self.lexer = ply.lex.lex(object=self, debug=0)
-        
-    def _prepare_tokens(self):
-                
-        # Map the keywords and reserved keywords to a dict lcase => ucase
-        self.keywords_map = {}
-        for value in self.keywords:
-            self.keywords_map[value.lower()] = value
-        
-        self.reserved_keywords_map = {}
-        for value in self.reserved_keywords:
-            self.reserved_keywords_map[value.lower()] = value
-        
-        
-        # Add other tokens
-        self.tokens = self.keywords + self.tokens
-    
 
     t_COMMENT   = r'//[^\n]*'
     t_BLOCK_COMMENT = block_comment
@@ -128,7 +126,7 @@ class Lexer(object):
     t_RSHIFT_EQUALS     = r'>>='
     t_URSHIFT_EQUALS    = r'>>>='
     t_AND_EQUALS        = r'&='
-    t_NOT_EQUALS        = r'\^='
+    t_XOR_EQUALS        = r'\^='
     t_OR_EQUALS         = r'\|='
     t_PLUS              = r'\+'
     t_MINUS             = r'-'
@@ -155,29 +153,50 @@ class Lexer(object):
     t_NET               = r'!=='
     t_INCR              = r'\+\+'
     t_DECR              = r'--'
+
+    # Assignment operators
+    t_EQUALS    = r'='
     
-    def t_INCR_LBREAK(self, t):
+
+    def __init__(self,):
+        self._prepare_tokens()
+        self.lexer = None
+        self.lexer = ply.lex.lex(object=self, debug=0)
+        self.next_tokens = []
+        self.prev_token = None
+        self.curr_token = None
+        
+    def _prepare_tokens(self):
+                
+        # Map the keywords and reserved keywords to a dict lcase => ucase
+        self.keywords_map = {}
+        for value in self.keywords:
+            self.keywords_map[value.lower()] = value
+        
+        self.reserved_keywords_map = {}
+        for value in self.reserved_keywords:
+            self.reserved_keywords_map[value.lower()] = value
+        
+        
+        # Add other tokens
+        self.tokens = self.keywords + self.tokens
+    
+    def t_INCR_NO_LT(self, t):
         r'\n\s*\+\+'
         t.value = '++'
         return t
-    
-    def t_DECR_LBREAK(self, t):
+
+    def t_DECR_NO_LT(self, t):
         r'\n\s*--'
         t.value = '--'
         return t
     
     
-    # Assignment operators
-    t_EQUALS    = r'='
-    
-    
-    def t_newline(self, t):
+    def t_LINE_TERMINATOR(self, t):
         r'\n+(?!\s*(?:\+\+)|(?:--))'
-        # Hack for INCR_LBREAK / DECR_LBREAK
+        # Hack for INCR_NO_LT / DECR_NO_LT
         t.lineno += len(t.value)
-        t.type = 'LINE_TERM'
-        
-        #return t
+        return t
     
     t_ignore = ' \t'
     
@@ -200,55 +219,69 @@ class Lexer(object):
     def input(self, input):
         self.lexer.input(input)
     
-    @property
     def token(self):
+        if self.next_tokens:
+            return self.next_tokens.pop()
         
-        
-        if not self.lexer:
-            return None
-        
-        return self.lexer.token 
-        return Tokenizer(self.lexer)
-        
-class Tokenizer(object):
-    def __init__(self, lexer):
-        self.lexer = lexer
-        self.generator = self._build_generator()
-        
-    def _build_generator(self):
-        node = self.lexer.next()
-        
-        for next_node in self.lexer:
-            if node.type != 'LINE_TERM':
-                yield node
+        while True:
+            self.prev_token = self.curr_token
+            self.curr_token = self.lexer.token()
             
-            # 7.9 Automatic Semicolon insertion
-            if next_node.type in ('RBRACE', 'LINE_TERM'):
-                token = LexToken()
-                token.type = 'SEMI'
-                token.value = ';'
-                token.lineno = node.lineno
-                token.lexpos = node.lexpos + 1
+            if self.curr_token is None:
+                break
+            
+            if self.curr_token.type != 'LINE_TERMINATOR':
+                break
+            
+            # When a token should not be followed by a lineTerminator token
+            # then we automatically replace the lineTerminator with a
+            # semi-colon
+            if self.prev_token and self.prev_token.type in [
+                'CONTINUE', 'BREAK', 'RETURN', 'THROW']:
+                return self.create_semicolon_token(self.curr_token)
+                
+        return self.curr_token
+    
+    
+    def __iter__(self):
+        while True:
+            token = self.token()
+            if token:
                 yield token
-            
-            node = next_node
+            else:
+                break
         
-        if node.type != 'LINE_TERM':
-            yield node
+    def create_semicolon_token(self, token):
+        asi_token = ply.lex.LexToken()
+        asi_token.type = 'SEMI'
+        asi_token.value = ';'
+        if token:
+            asi_token.lineno = token.lineno
+            asi_token.lexpos = token.lexpos
+        else:
+            asi_token.lineno = 0
+            asi_token.lexpos = 0
+        return asi_token
+        
+    def auto_semicolon(self, token):
+        print "creating semicolon for ", token
+        if not token or (token and token.type == 'RBRACE') or \
+           self.prev_line_terminator():
+            print 'dot'
+            if token:
+                self.next_tokens.append(token)
+            return self.create_semicolon_token(token)
+        
+    def prev_line_terminator(self):
+        return self.prev_token and self.prev_token.type == 'LINE_TERMINATOR'
             
-    def __call__(self):
-        try:
-            token = self.generator.next()
-            print token
-            return token
-        except StopIteration:
-            return None
-   
-   
     
 if __name__ == "__main__":
+    lexer = Lexer()
     input = """
-    var test = 1;
+    return {
+    "test";
+    };
     """
     lexer.input(input)
     for token in lexer:
