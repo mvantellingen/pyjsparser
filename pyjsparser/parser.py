@@ -132,12 +132,10 @@ class Parser(object):
 
     def p_IdentifierName(self, p):
         """IdentifierName : Identifier"""
-        print "IdentifierName: ", list(p)
         p[0] = p[1]      
 
     def p_Identifier(self, p):
         """Identifier : ID"""
-        print "Identifier: ", list(p)
         p[0] = ast.Identifier(p[1])
 
     # TODO: Note that the RegularExpressionLiteral doesn't belong here
@@ -198,7 +196,6 @@ class Parser(object):
     # TODO: Elision support is not implemented correctly
     def p_ArrayLiteral_1(self, p):
         """ArrayLiteral : LBRACKET Elision_opt RBRACKET"""
-        print "ArrayLiteral: ", list(p)
         p[0] = ast.Array(items=None)
         
     def p_ArrayLiteral_2(self, p):
@@ -957,7 +954,7 @@ class Parser(object):
     # 12.15 Debugger statement
     def p_DebuggerStatement(self, p):
         """DebuggerStatement : DEBUGGER SEMI"""
-        print "DebuggerStatement: ", list(p)
+        p[0] = ast.Debugger()
 
     #
     # 13. Function Definition
@@ -1021,6 +1018,7 @@ if __name__ == "__main__":
     2 instanceof 1;
     2+(+2);
     2-(-1), 2*2
+    debugger;
     """
     
     parser = Parser()

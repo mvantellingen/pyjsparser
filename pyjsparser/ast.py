@@ -352,3 +352,7 @@ class Finally(Node):
         Node.__init__(self)
         self.statements = statements
         self._fields = [statements]
+        
+class Debugger(Node):
+    def __init__(self):
+        Node.__init__(self)
