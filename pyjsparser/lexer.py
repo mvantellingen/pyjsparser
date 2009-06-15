@@ -35,10 +35,6 @@ class Lexer(object):
     
     tokens = (
 
-        # Types
-        "STRING_LITERAL",
-        "NUMBER_LITERAL",
-        
         "ID",
         
         'COMMENT', 'BLOCK_COMMENT', 'REGEX',
@@ -74,6 +70,12 @@ class Lexer(object):
         
         # Separate tokens for postfix usage with [no line-terminator]
         'INCR_NO_LT', 'DECR_NO_LT',     # [no line-terminator] ++ --
+        
+        # Types
+        "STRING_LITERAL",
+        "NUMBER_LITERAL",
+        
+        
     )
 
 
@@ -91,11 +93,11 @@ class Lexer(object):
     t_STRING_LITERAL    = (r'((?:"(?:[^"\\\n]|'+ escape_sequence +')*")|'
                             r"(?:'(?:[^'\\\n]|"+ escape_sequence +")*'))")
 
-    t_NUMBER_LITERAL   = (r'[-+]?(?:'                           # Allow +/-
+    t_NUMBER_LITERAL   = (r'(?:'                          
                             '(?:[0-9]*\.[0-9]+(?:e?[0-9]+)?)|'  # .2e20
                             '(?:[0-9]+\.(?:e?[0-9]+)?)|'        # 2.e20     
                             '[0-9]+'                            # integer
-                            ')')
+                           ')')
 
     # Regex
     t_REGEX         = r'(/(?=[^/*])(\\\\|\\/|[^/\n])*/)[a-zA-Z]*'
@@ -141,8 +143,8 @@ class Lexer(object):
     t_NOT               = r'~'
     t_XOR               = r'\^'
     t_LSHIFT            = r'<<'
-    t_RSHIFT            = r'>>' # Signed right shift
-    t_URSHIFT           = r'>>' # Unsigned right shift
+    t_RSHIFT            = r'>>'  # Signed right shift
+    t_URSHIFT           = r'>>>' # Unsigned right shift
     t_LOR               = r'\|\|'
     t_LAND              = r'&&'
     t_LNOT              = r'!'
@@ -274,7 +276,7 @@ class Lexer(object):
 if __name__ == "__main__":
     lexer = Lexer()
     input = """
-    var a = +1.2;
+    [1,2]
             
     """
     lexer.input(input)

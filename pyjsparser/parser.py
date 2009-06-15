@@ -10,6 +10,7 @@
 """
 import ply.yacc
 import ply.lex
+import re
 
 from pyjsparser.lexer import Lexer
 from pyjsparser import ast
@@ -151,28 +152,29 @@ class Parser(object):
 
     def p_NullLiteral(self, p):
         """NullLiteral : NULL """
-        print "NullLiteral: ", list(p)
+        p[0] = ast.Null()
 
     def p_BooleanLiteral(self, p):
         """BooleanLiteral : TRUE
                           | FALSE"""
-        print "BooleanLiteral: ", list(p)
         p[0] = ast.Boolean(p[1])
         
     # TODO
     def p_NumericLiteral(self, p):
         """NumericLiteral : NUMBER_LITERAL"""
-        print "NumericLiteral: ", list(p)
         p[0] = ast.Number(p[1])
         
     def p_StringLiteral(self, p):
         """StringLiteral : STRING_LITERAL"""
-        print "StringLiteral: ", list(p)
         p[0] = ast.String(data=p[1])
 
     def p_RegularExpressionLiteral(self, p):
         """RegularExpressionLiteral : REGEX"""
-        print "RegularExpressionLiteral: ", list(p)
+        # This should be improved ;-)
+        match = re.match('^/(.*?)/([a-z]+)$', p[1]).groups()
+        p[0] = ast.RegEx(pattern=match[0], flags=match[1])
+    
+    
     #
     # 11. Expressions
 
@@ -193,22 +195,32 @@ class Parser(object):
         else:
             p[0] = p[2]
 
-    def p_ArrayLiteral(self, p):
-        """ArrayLiteral : LBRACKET Elision_opt RBRACKET
-                        | LBRACKET ElementList RBRACKET
-                        | LBRACKET ElementList COMMA Elision_opt RBRACKET"""
+    # TODO: Elision support is not implemented correctly
+    def p_ArrayLiteral_1(self, p):
+        """ArrayLiteral : LBRACKET Elision_opt RBRACKET"""
         print "ArrayLiteral: ", list(p)
+        p[0] = ast.Array(items=None)
+        
+    def p_ArrayLiteral_2(self, p):
+        """ArrayLiteral : LBRACKET ElementList RBRACKET
+                        | LBRACKET ElementList COMMA Elision_opt RBRACKET"""
+        p[0] = ast.Array(items=p[2])
 
     def p_ElementList(self, p):
         """ElementList : Elision_opt AssignmentExpression
                        | ElementList COMMA Elision_opt AssignmentExpression """
-        print "ElementList: ", list(p) 
+        if len(p) == 3:
+            p[1] = [p[2]]
+        else:
+            p[1].append(p[4])
+        p[0] = p[1]
+        
 
-    # TODO
+    # TODO: Implement correctly
     def p_Elision(self, p):
         """Elision : COMMA
                    | Elision COMMA"""
-        print "Elision: ", list(p)
+        p[0] = p[1]
         
 
     def p_ObjectLiteral(self, p):
@@ -252,19 +264,18 @@ class Parser(object):
                             | MemberExpression LBRACKET Expression RBRACKET
                             | MemberExpression PERIOD IdentifierName 
                             | NEW MemberExpression Arguments """
-        print "MemberExpression: ", list(p)
         if len(p) == 2:
             p[0] = p[1]
         elif p[1] != 'new':
             p[0] = ast.ElementGet(node=p[1], element=p[3])
-        
-    # TODO
+        else:
+            p[0] == ast.New(identifier=p[1], arguments=p[3])
+
     def p_MemberExpressionNoBF(self, p):
         """MemberExpressionNoBF : PrimaryExpressionNoObj 
                                 | MemberExpressionNoBF LBRACKET Expression RBRACKET
                                 | MemberExpressionNoBF PERIOD IdentifierName 
                                 | NEW MemberExpression Arguments """
-        print "MemberExpressionNoBF: ", list(p)
         if len(p) == 2:
             p[0] = p[1]
             
@@ -290,49 +301,51 @@ class Parser(object):
         else:
             p[0] = ast.New(identifier=p[2])
 
-    def p_CallExpression(self, p):
+    def p_CallExpression_1(self, p):
         """CallExpression : MemberExpression Arguments
-                          | CallExpression Arguments
-                          | CallExpression LBRACKET Expression RBRACKET
+                          | CallExpression Arguments"""
+        p[0] = ast.FuncCall(node=p[1], arguments=p[2])
+    
+    def p_CallExpression_2(self, p):
+        """CallExpression : CallExpression LBRACKET Expression RBRACKET
                           | CallExpression PERIOD IdentifierName"""
-        print "CallExpression: ", list(p)
-        if len(p) == 3:
-            p[0] = ast.FuncCall(node=p[1], arguments=p[2])
-        
+        if p[2] == '.':
+            p[0] = ast.DotAccessor(node=p[1], element=p[3])
+        else:
+            p[0] = ast.BracketAccessor(node=p[1], element=p[3])
 
-    def p_CallExpressionNoBF(self, p):
+    def p_CallExpressionNoBF_1(self, p):
         """CallExpressionNoBF : MemberExpressionNoBF Arguments
-                              | CallExpressionNoBF Arguments
-                              | CallExpressionNoBF LBRACKET Expression RBRACKET
+                              | CallExpressionNoBF Arguments"""
+        p[0] = ast.FuncCall(node=p[1], arguments=p[2])
+        
+    def p_CallExpressionNoBF_2(self, p):
+        """CallExpressionNoBF : CallExpressionNoBF LBRACKET Expression RBRACKET
                               | CallExpressionNoBF PERIOD IdentifierName"""
-        print "CallExpressionNoBF: ", list(p)
-        if len(p) == 3:
-            p[0] = ast.FuncCall(node=p[1], arguments=p[2])
+        if p[2] == '.':
+            p[0] = ast.DotAccessor(node=p[1], element=p[3])
+        else:
+            p[0] = ast.BracketAccessor(node=p[1], element=p[3])
             
     def p_Arguments(self, p):
         """Arguments : LPAREN RPAREN
                      | LPAREN ArgumentList RPAREN"""
-        print "Arguments: ", list(p)
         if len(p) == 4:
             p[0] = p[2]
 
     def p_ArgumentList(self, p):
         """ArgumentList : AssignmentExpression
                         | ArgumentList COMMA AssignmentExpression"""
-        print "ArgumentList: ", list(p)
         p[0] = self.build_list(p, 1, 3)
-
                              
     def p_LeftHandSideExpression(self, p):
         """LeftHandSideExpression : NewExpression
                                   | CallExpression """
-        print "LeftHandSideExpression: ", list(p)
         p[0] = p[1]
 
     def p_LeftHandSideExpressionNoBF(self, p):
         """LeftHandSideExpressionNoBF : NewExpressionNoBF
                                       | CallExpressionNoBF """
-        print "LeftHandSideExpressionNoBF: ", list(p)
         p[0] = p[1]
     
     # 11.3 Postfix Expressions
@@ -340,8 +353,6 @@ class Parser(object):
         """PostfixExpression : LeftHandSideExpression
                              | LeftHandSideExpression INCR_NO_LT 
                              | LeftHandSideExpression DECR_NO_LT"""
-        print "PostfixExpression: ", list(p)
-
         if len(p) == 2:
             p[0] = p[1]
         else:
@@ -351,8 +362,6 @@ class Parser(object):
         """PostfixExpressionNoBF : LeftHandSideExpressionNoBF
                                  | LeftHandSideExpressionNoBF INCR_NO_LT
                                  | LeftHandSideExpressionNoBF DECR_NO_LT"""
-        print "PostfixExpressionNoBF: ", list(p)
-
         if len(p) == 2:
             p[0] = p[1]
         else:
@@ -371,21 +380,16 @@ class Parser(object):
                                  | MINUS UnaryExpression   
                                  | NOT UnaryExpression 
                                  | LNOT UnaryExpression """
-        print "UnaryExpressionCommon: ", list(p)
-        
         p[0] = ast.UnaryOp(operator=p[1], value=p[2], postfix=False)
     
     def p_UnaryExpression(self, p):
         """UnaryExpression : PostfixExpression
                            | UnaryExpressionCommon"""
-        print "UnaryExpression: ", list(p)
         p[0] = p[1]
-        print list(p)
                            
     def p_UnaryExpressionNoBF(self, p):
         """UnaryExpressionNoBF : PostfixExpressionNoBF
                                | UnaryExpressionCommon"""
-        print "UnaryExpressionNoBF: ", list(p)
         p[0] = p[1]
 
     # 11.5 Multiplicative Operators
@@ -435,20 +439,21 @@ class Parser(object):
                            | ShiftExpression LSHIFT AdditiveExpression 
                            | ShiftExpression RSHIFT AdditiveExpression 
                            | ShiftExpression URSHIFT AdditiveExpression"""
-        print "ShiftExpression: ", list(p)
         if len(p) == 2:
             p[0] = p[1]
+        else:
+            p[0] = ast.BinOp(operator=p[2], left=p[1], right=p[3])
             
     def p_ShiftExpressionNoBF(self, p):
         """ShiftExpressionNoBF : AdditiveExpressionNoBF 
                                | ShiftExpressionNoBF LSHIFT AdditiveExpression 
                                | ShiftExpressionNoBF RSHIFT AdditiveExpression 
                                | ShiftExpressionNoBF URSHIFT AdditiveExpression"""
-        print "ShiftExpressionNoBF: ", list(p)
         if len(p) == 2:
             p[0] = p[1]
+        else:
+            p[0] = ast.BinOp(operator=p[2], left=p[1], right=p[3])
             
-
     # 11.8 Relational Operators
     def p_RelationalExpression(self, p):
         """RelationalExpression : ShiftExpression 
@@ -458,7 +463,6 @@ class Parser(object):
                                 | RelationalExpression LE ShiftExpression 
                                 | RelationalExpression INSTANCEOF ShiftExpression 
                                 | RelationalExpression IN ShiftExpression"""
-        print "RelationalExpression: ", list(p)
         if len(p) == 2:
             p[0] = p[1]
         else:
@@ -471,9 +475,10 @@ class Parser(object):
                                     | RelationalExpressionNoIn GE ShiftExpression 
                                     | RelationalExpressionNoIn LE ShiftExpression 
                                     | RelationalExpressionNoIn INSTANCEOF ShiftExpression"""
-        print "RelationalExpressionNoIn: ", list(p)
         if len(p) == 2:
             p[0] = p[1]
+        else:
+            p[0] = ast.BinOp(p[2], left=p[1], right=p[3])
 
 
     def p_RelationalExpressionNoBF(self, p):
@@ -484,10 +489,10 @@ class Parser(object):
                                     | RelationalExpressionNoBF LE ShiftExpression 
                                     | RelationalExpressionNoBF INSTANCEOF ShiftExpression
                                     | RelationalExpressionNoBF IN ShiftExpression"""
-        print "RelationalExpressionNoBF: ", list(p)
         if len(p) == 2:
             p[0] = p[1]
-
+        else:
+            p[0] = ast.BinOp(p[2], left=p[1], right=p[3])
 
     # 11.9 Equality Operators
     def p_EqualityExpression(self, p):
@@ -496,9 +501,10 @@ class Parser(object):
                               | EqualityExpression NE RelationalExpression 
                               | EqualityExpression EQT RelationalExpression 
                               | EqualityExpression NET RelationalExpression"""
-        print "EqualityExpression: ", list(p)
         if len(p) == 2:
             p[0] = p[1]
+        else:
+            p[0] = ast.BinOp(p[2], left=p[1], right=p[3])
 
     def p_EqualityExpressionNoIn(self, p):
         """EqualityExpressionNoIn : RelationalExpressionNoIn 
@@ -506,9 +512,10 @@ class Parser(object):
                                   | EqualityExpressionNoIn NE RelationalExpressionNoIn 
                                   | EqualityExpressionNoIn EQT RelationalExpressionNoIn 
                                   | EqualityExpressionNoIn NET RelationalExpressionNoIn"""
-        print "EqualityExpressionNoIn: ", list(p)
         if len(p) == 2:
             p[0] = p[1]
+        else:
+            p[0] = ast.BinOp(p[2], left=p[1], right=p[3])
 
     def p_EqualityExpressionNoBF(self, p):
         """EqualityExpressionNoBF : RelationalExpressionNoBF 
@@ -516,9 +523,10 @@ class Parser(object):
                                   | EqualityExpressionNoBF NE RelationalExpressionNoIn 
                                   | EqualityExpressionNoBF EQT RelationalExpressionNoIn 
                                   | EqualityExpressionNoBF NET RelationalExpressionNoIn"""
-        print "EqualityExpressionNoBF: ", list(p)
         if len(p) == 2:
             p[0] = p[1]
+        else:
+            p[0] = ast.BinOp(p[2], left=p[1], right=p[3])
 
 
     # 11.10 Binary Bitwise Operators
@@ -603,7 +611,6 @@ class Parser(object):
         else:
             p[0] = p[1]
 
-
     def p_LogicalANDExpressionNoIn(self, p):
         """LogicalANDExpressionNoIn : BitwiseORExpressionNoIn
                                     | LogicalANDExpressionNoIn LAND BitwiseORExpressionNoIn """
@@ -611,7 +618,6 @@ class Parser(object):
             p[0] = ast.BinOp(operator=p[2], left=p[1], right=p[3])
         else:
             p[0] = p[1]
-
 
     def p_LogicalANDExpressionNoBF(self, p):
         """LogicalANDExpressionNoBF : BitwiseORExpressionNoBF
@@ -621,10 +627,6 @@ class Parser(object):
         else:
             p[0] = p[1]
 
-    """ (true || false) || (true  && false)
-        true && true
-        """
-
     def p_LogicalORExpression(self, p):
         """LogicalORExpression : LogicalANDExpression
                                | LogicalORExpression LOR LogicalANDExpression """
@@ -633,8 +635,6 @@ class Parser(object):
         else:
             p[0] = p[1]
 
-
-
     def p_LogicalORExpressionNoIn(self, p):
         """LogicalORExpressionNoIn : LogicalANDExpressionNoIn 
                                    | LogicalORExpressionNoIn LOR LogicalANDExpressionNoIn """
@@ -642,7 +642,6 @@ class Parser(object):
             p[0] = ast.BinOp(operator=p[2], left=p[1], right=p[3])
         else:
             p[0] = p[1]
-
 
     def p_LogicalORExpressionNoBF(self, p):
         """LogicalORExpressionNoBF : LogicalANDExpressionNoBF 
@@ -692,7 +691,6 @@ class Parser(object):
         """AssignmentExpression : ConditionalExpression
                                 | LeftHandSideExpression AssignmentOperator \
                                     AssignmentExpression"""
-        print "AssignmentExpression: ", list(p)
         if len(p) == 2:
             p[0] = p[1]
         else:
@@ -712,7 +710,6 @@ class Parser(object):
         """AssignmentExpressionNoBF : ConditionalExpressionNoBF
                                     | LeftHandSideExpressionNoBF AssignmentOperator \
                                         AssignmentExpression"""
-        print "AssignmentExpressionNoBF: ", list(p)
         if len(p) == 2:
             p[0] = p[1]
         else:
@@ -732,30 +729,23 @@ class Parser(object):
                               | AND_EQUALS
                               | XOR_EQUALS
                               | OR_EQUALS"""
-        print "AssignmentOperator: ", list(p)
         p[0] = p[1]
 
     # 11.14 Comma Operator ( , )
     def p_Expression(self, p):
         """Expression : AssignmentExpression
                       | Expression COMMA AssignmentExpression"""
-        print "Expression: ", list(p)
-        if len(p) == 2:
-            p[0] = p[1]
+        p[0] = self.build_list(p, 1, 3)
 
     def p_ExpressionNoIn(self, p):
         """ExpressionNoIn : AssignmentExpressionNoIn
                           | ExpressionNoIn COMMA AssignmentExpressionNoIn"""
-        print "ExpressionNoIn: ", list(p)
-        if len(p) == 2:
-            p[0] = p[1]
+        p[0] = self.build_list(p, 1, 3)
 
     def p_ExpressionNoBF(self, p):
         """ExpressionNoBF : AssignmentExpressionNoBF
                           | ExpressionNoBF COMMA AssignmentExpression"""
-        print "ExpressionNoBF: ", list(p)
-        if len(p) == 2:
-            p[0] = p[1]
+        p[0] = self.build_list(p, 1, 3)
 
 
     # 12 Statements
@@ -776,26 +766,22 @@ class Parser(object):
                      | ThrowStatement 
                      | TryStatement 
                      | DebuggerStatement"""
-        print "Statement: ", list(p)
         p[0] = p[1]
         
     # 12.1 Block
     def p_Block(self, p):
         """Block : LBRACE StatementList_opt RBRACE"""
-        print "Block: ", list(p)
         p[0] = p[2]
 
     def p_StatementList(self, p):
         """StatementList : Statement
                          | StatementList Statement"""
-        print "StatementList: ", list(p)
         p[0] = self.build_list(p, 1, 2)
             
     # 12.2 Variable Statement
     def p_VariableStatement(self, p):
         """VariableStatement : VAR VariableDeclarationList SEMI
                              | VAR VariableDeclarationList auto_semicolon"""
-        print "VariableStatement: ", list(p)
         p[0] = []
         for node, expression in p[2]:
             p[0].append(ast.VariableDeclaration(node, expression))
@@ -1027,59 +1013,17 @@ class Parser(object):
     
     # TODO ArbitraryInputElements
 
-
-
-class NodeVisitor(object):
-    
-    def __init__(self):
-        self.level = 0
-        
-    def get_visitor(self, node):
-        method = 'visit_' + node.__class__.__name__
-        return getattr(self, method, None)
-        
-    def visit(self, node):
-        self.level +=  1
-        
-        print "%s %r" % (self.level * '    ', node)
-        visitor = self.get_visitor(node)
-        if visitor is not None:
-            result = visitor(Node)
-        else:
-            result = self.generic_visit(node)
-        self.level -= 1
-        return result
-    
-    def generic_visit(self, node):
-            
-        try:
-            for child in node:
-                if isinstance(child, list):
-                    for subchild in child:
-                        if isinstance(subchild, ast.Node):
-                            self.visit(subchild)
-                        else:
-                            self.generic_visit(subchild)
-                elif isinstance(child, ast.Node):
-                    self.visit(child)
-        except TypeError:
-            print "Unable to visit: ", node
-        
                 
      
     
 if __name__ == "__main__":
     input = r"""
-    var quicktest = {
-        test: function() {
-            return 1;
-            funccall();
-        }
-    }
+    2 instanceof 1;
+    2+(+2);
+    2-(-1), 2*2
     """
     
     parser = Parser()
     output = parser.parse(input)
-    print ">>>>>", output
-    walker = NodeVisitor()
+    walker = ast.NodeVisitor()
     walker.visit(output)
