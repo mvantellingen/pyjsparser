@@ -34,6 +34,11 @@ class Lexer(object):
     )
     
     tokens = (
+
+        # Types
+        "STRING_LITERAL",
+        "NUMBER_LITERAL",
+        
         "ID",
         
         'COMMENT', 'BLOCK_COMMENT', 'REGEX',
@@ -69,12 +74,6 @@ class Lexer(object):
         
         # Separate tokens for postfix usage with [no line-terminator]
         'INCR_NO_LT', 'DECR_NO_LT',     # [no line-terminator] ++ --
-        
-    
-        # Types
-        "STRING_LITERAL",
-        "INTEGER",
-        "FLOAT",        
     )
 
 
@@ -87,20 +86,23 @@ class Lexer(object):
     hex_char        = r'\\(x[a-fA-F0-9]{2})'
     unicode_char    = r'\\(u[a-fA-F0-9]{4})'
     escape_sequence = r'('+ simple_escape + '|'+ hex_char +'|'+ unicode_char +')'
-    
-    string_char     = r'[^\\\n]|'+ escape_sequence
-    string_literal  = (r'((?:"(?:[^"\\\n]|'+ escape_sequence +')*")|'
-                        r"(?:'(?:[^'\\\n]|"+ escape_sequence +")*'))")
 
-    digit   = r'([0-9]+)'
-    float   = r'(?:[0-9]*\.[0-9]+(?:e?[0-9]+)?)|(?:[0-9]+\.(?:e?[0-9]+)?)'
-    
-    block_comment = r'/\*[^*]*\*+([^/*][^*]*\*+)*/'
+    # Literals
+    t_STRING_LITERAL    = (r'((?:"(?:[^"\\\n]|'+ escape_sequence +')*")|'
+                            r"(?:'(?:[^'\\\n]|"+ escape_sequence +")*'))")
 
+    t_NUMBER_LITERAL   = (r'[-+]?(?:'                           # Allow +/-
+                            '(?:[0-9]*\.[0-9]+(?:e?[0-9]+)?)|'  # .2e20
+                            '(?:[0-9]+\.(?:e?[0-9]+)?)|'        # 2.e20     
+                            '[0-9]+'                            # integer
+                            ')')
 
-    t_COMMENT   = r'//[^\n]*'
-    t_BLOCK_COMMENT = block_comment
-    t_REGEX     = r'(/(?=[^/*])(\\\\|\\/|[^/\n])*/)[a-zA-Z]*'
+    # Regex
+    t_REGEX         = r'(/(?=[^/*])(\\\\|\\/|[^/\n])*/)[a-zA-Z]*'
+
+    # Comments    
+    t_COMMENT       = r'//[^\n]*'
+    t_BLOCK_COMMENT = r'/\*[^*]*\*+([^/*][^*]*\*+)*/'
     
     # Delimeters
     t_LPAREN    = r'\('
@@ -128,6 +130,7 @@ class Lexer(object):
     t_AND_EQUALS        = r'&='
     t_XOR_EQUALS        = r'\^='
     t_OR_EQUALS         = r'\|='
+    t_EQUALS            = r'='
     t_PLUS              = r'\+'
     t_MINUS             = r'-'
     t_TIMES             = r'\*'
@@ -154,9 +157,6 @@ class Lexer(object):
     t_INCR              = r'\+\+'
     t_DECR              = r'--'
 
-    # Assignment operators
-    t_EQUALS    = r'='
-    
 
     def __init__(self,):
         self._prepare_tokens()
@@ -200,19 +200,16 @@ class Lexer(object):
     
     t_ignore = ' \t'
     
-    t_STRING_LITERAL = string_literal
-        
-    t_INTEGER = digit;
-    t_FLOAT = float;
     
     @TOKEN(identifier)
     def t_ID(self, t):
         if t.value in self.reserved_keywords_map:
             warnings.warn("The identifier '%s' is a reserved keyword" % t.value)
         t.type = self.keywords_map.get(t.value, "ID")
+        
         return t
         
-        
+   
     def t_error(self, t):
         raise TypeError("Unknown text '%s', %d" % (t.value[:20], t.lineno))
 
@@ -264,10 +261,8 @@ class Lexer(object):
         return asi_token
         
     def auto_semicolon(self, token):
-        print "creating semicolon for ", token
         if not token or (token and token.type == 'RBRACE') or \
            self.prev_line_terminator():
-            print 'dot'
             if token:
                 self.next_tokens.append(token)
             return self.create_semicolon_token(token)
@@ -279,9 +274,8 @@ class Lexer(object):
 if __name__ == "__main__":
     lexer = Lexer()
     input = """
-    return {
-    "test";
-    };
+    var a = +1.2;
+            
     """
     lexer.input(input)
     for token in lexer:

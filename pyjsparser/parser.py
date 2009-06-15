@@ -102,7 +102,6 @@ class Parser(object):
         """auto_semicolon : error """
 
     def p_error(self, p):
-        print "ERROr", p
         if (p and p.type != 'SEMI') or not p:
             next_token = self.lexer.auto_semicolon(p)
             if next_token:
@@ -162,7 +161,7 @@ class Parser(object):
         
     # TODO
     def p_NumericLiteral(self, p):
-        """NumericLiteral : INTEGER"""
+        """NumericLiteral : NUMBER_LITERAL"""
         print "NumericLiteral: ", list(p)
         p[0] = ast.Number(p[1])
         
@@ -1073,6 +1072,7 @@ if __name__ == "__main__":
     input = r"""
     var quicktest = {
         test: function() {
+            return 1;
             funccall();
         }
     }
