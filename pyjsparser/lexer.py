@@ -21,8 +21,9 @@ class Lexer(object):
     keywords = (
         'FUNCTION', 'VAR', 'CONTINUE', 'RETURN', 'IF', 'ELSE', 'BREAK',
         'TRUE', 'FALSE', 'THIS', 'NEW', 'INSTANCEOF', 'IN', 'DELETE', 'TYPEOF',
-        'VOID', 'NULL', 'WHILE', 'DO', 'FOR', 'GET', 'SET', 'TRY', 'THROW', 'CATCH',
+        'VOID', 'NULL', 'WHILE', 'DO', 'FOR', 'TRY', 'THROW', 'CATCH',
         'DEFAULT', 'FINALLY', 'CASE', 'WITH', 'DEBUGGER', 'SWITCH',
+        # 'GET', 'SET', 
     )
     
     reserved_keywords = (
@@ -32,12 +33,15 @@ class Lexer(object):
         'CONST', 'IMPLEMENTS', 'PROTECTED', 'VOLATILE', 'DOUBLE', 'IMPORT',
         'PUBLIC', 'ENUM', 'INT', 'SHORT'
     )
+    states = (
+        ('regex', 'exclusive'),
+    )
     
     tokens = (
 
         "ID",
         
-        'COMMENT', 'BLOCK_COMMENT', 'REGEX',
+        'LINE_COMMENT', 'BLOCK_COMMENT', 
         
         # Delimeters
         "LINE_TERMINATOR",              # One of LF, CR, LS, PS, see 7.3 
@@ -71,11 +75,13 @@ class Lexer(object):
         # Separate tokens for postfix usage with [no line-terminator]
         'INCR_NO_LT', 'DECR_NO_LT',     # [no line-terminator] ++ --
         
+        
         # Types
         "STRING_LITERAL",
         "NUMBER_LITERAL",
         
-        
+        # Regex state tokens
+        'RE_BODY', 'RE_END',
     )
 
 
@@ -89,6 +95,12 @@ class Lexer(object):
     unicode_char    = r'\\(u[a-fA-F0-9]{4})'
     escape_sequence = r'('+ simple_escape + '|'+ hex_char +'|'+ unicode_char +')'
 
+    # Regex
+    regex_first_char  = r'(?:[^\n\r\[\\\/\*]|(?:\\.)|(?:\[[^\]]+\]))'
+    regex_char        = r'(?:[^\n\r\[\\\/]|(?:\\.)|(?:\[[^\]]+\]))'
+    t_regex_RE_BODY      = regex_first_char + regex_char + '*'
+    t_regex_RE_END    = r'/'
+    
     # Literals
     t_STRING_LITERAL    = (r'((?:"(?:[^"\\\n]|'+ escape_sequence +')*")|'
                             r"(?:'(?:[^'\\\n]|"+ escape_sequence +")*'))")
@@ -99,11 +111,8 @@ class Lexer(object):
                             '[0-9]+'                            # integer
                            ')')
 
-    # Regex
-    t_REGEX         = r'(/(?=[^/*])(\\\\|\\/|[^/\n])*/)[a-zA-Z]*'
-
     # Comments    
-    t_COMMENT       = r'//[^\n]*'
+    t_LINE_COMMENT  = r'//[^\n]*'
     t_BLOCK_COMMENT = r'/\*[^*]*\*+([^/*][^*]*\*+)*/'
     
     # Delimeters
@@ -159,7 +168,6 @@ class Lexer(object):
     t_INCR              = r'\+\+'
     t_DECR              = r'--'
 
-
     def __init__(self,):
         self._prepare_tokens()
         self.lexer = None
@@ -193,15 +201,13 @@ class Lexer(object):
         t.value = '--'
         return t
     
-    
     def t_LINE_TERMINATOR(self, t):
-        r'\n+(?!\s*(?:\+\+)|(?:--))'
+        r'[\n\r]+(?!\s*(?:\+\+)|(?:--))'
         # Hack for INCR_NO_LT / DECR_NO_LT
         t.lineno += len(t.value)
         return t
     
     t_ignore = ' \t'
-    
     
     @TOKEN(identifier)
     def t_ID(self, t):
@@ -210,7 +216,7 @@ class Lexer(object):
         t.type = self.keywords_map.get(t.value, "ID")
         
         return t
-        
+    
    
     def t_error(self, t):
         raise TypeError("Unknown text '%s', %d" % (t.value[:20], t.lineno))
@@ -229,7 +235,8 @@ class Lexer(object):
             if self.curr_token is None:
                 break
             
-            if self.curr_token.type != 'LINE_TERMINATOR':
+            if self.curr_token.type not in ('LINE_TERMINATOR',
+                                            'LINE_COMMENT', 'BLOCK_COMMENT'):
                 break
             
             # When a token should not be followed by a lineTerminator token
@@ -271,14 +278,52 @@ class Lexer(object):
         
     def prev_line_terminator(self):
         return self.prev_token and self.prev_token.type == 'LINE_TERMINATOR'
+
+    def scan_regexp(self, start_value):
+        value = [start_value]
+        
+        # Based on webkit javascriptcore scanRegExp()
+        last_escape = False
+        in_brackets = False
+        
+        self.lexer.begin('regex')
+        try:
+            while True:
+                token = self.token()
+                if not token or token.value in ['\n', '\r']:
+                    return None, None
+                
+                if token.value != '/' or last_escape or in_brackets:
+                    if not last_escape:
+                        if token.value == '[' and not in_brackets:
+                            in_brackets = True
+                        elif token.value == ']' and in_brackets:
+                            in_brackets = False
+                    last_escape = not last_escape and token.value == '\\'
+                    value.append(token.value)
+                else:
+                    value.append(token.value)
+                    break
+            self.lexer.begin('INITIAL')
             
+            flags = ""
+            token = self.token()
+            if not token.type == 'ID':
+                self.next_tokens.append(token)
+            else:
+                flags = token.value;
+                
+            return "".join(value), "".join(flags)
+        finally:
+            self.lexer.begin('INITIAL')
     
 if __name__ == "__main__":
     lexer = Lexer()
     input = """
-    [1,2]
+    /opacity=([^)]*)/)[1])/100)+'':"";}name=name.replace(/-([a-z])/ig
             
     """
+    #input = open('jquery-1.3.2.js').read()
     lexer.input(input)
     for token in lexer:
         print token

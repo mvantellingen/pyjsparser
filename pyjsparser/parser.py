@@ -27,8 +27,9 @@ class Parser(object):
     The grammer contains 1 shift/reduce conflict caused by the if/else clause,
     which is harmless.
     """
-    def __init__(self):
+    def __init__(self, debug=False):
         self.lexer = Lexer()
+        self.debug = debug 
         self.tokens = self.lexer.tokens
         optionals = (
             'FormalParameterList',
@@ -66,7 +67,7 @@ class Parser(object):
         setattr(self.__class__, optrule.__name__, optrule)    
 
     def parse(self, input):
-        return self.yacc.parse(input, lexer=self.lexer)
+        return self.yacc.parse(input, lexer=self.lexer, debug=self.debug)
     
     # Precedence rules
     precedence = (
@@ -81,7 +82,7 @@ class Parser(object):
         ('left', 'GT', 'GE', 'LT', 'LE'),
         ('left', 'RSHIFT', 'LSHIFT'),
         ('left', 'PLUS', 'MINUS'),
-        ('left', 'TIMES', 'DIVIDE', 'MOD')
+        ('left', 'TIMES', 'DIVIDE', 'MOD'),
     )    
 
     def build_list(self, p, base, node, count=None):
@@ -103,14 +104,17 @@ class Parser(object):
         """auto_semicolon : error """
 
     def p_error(self, p):
-        if (p and p.type != 'SEMI') or not p:
+        print "FF ERROR", p,
+        
+        if False and (p and p.type != 'SEMI') or not p:
             next_token = self.lexer.auto_semicolon(p)
             if next_token:
                 self.yacc.errok()
                 return next_token
 
-        raise SyntaxError("%r unexpected at %d:%d" % (
-            p.value, p.lineno, p.lexpos))
+        
+        raise SyntaxError("%r (%s) unexpected at %d:%d (after %r)" % (
+            p.value, p.type, p.lineno, p.lexpos, p.lexer.prev_token))
 
     #
     # 7. Lexical Conventions
@@ -123,7 +127,7 @@ class Parser(object):
         p[0] = p[1]
         
     def p_SingleLineComment(self, p):
-        """SingleLineComment : COMMENT"""
+        """SingleLineComment : LINE_COMMENT"""
         p[0] = ast.LineComment(p[1])
 
     def p_MultiLineComment(self, p):
@@ -145,9 +149,10 @@ class Parser(object):
                    | BooleanLiteral
                    | NumericLiteral
                    | StringLiteral
-                   | RegularExpressionLiteral"""
+                   | RegexStart DIVIDE
+                   | RegexStart DIVIDE_EQUALS"""
         p[0] = p[1]
-
+        
     def p_NullLiteral(self, p):
         """NullLiteral : NULL """
         p[0] = ast.Null()
@@ -166,13 +171,11 @@ class Parser(object):
         """StringLiteral : STRING_LITERAL"""
         p[0] = ast.String(data=p[1])
 
-    def p_RegularExpressionLiteral(self, p):
-        """RegularExpressionLiteral : REGEX"""
-        # This should be improved ;-)
-        match = re.match('^/(.*?)/([a-z]+)$', p[1]).groups()
-        p[0] = ast.RegEx(pattern=match[0], flags=match[1])
-    
-    
+    def p_RegexStart(self, p): 
+        """RegexStart : """
+        pattern, flags = self.lexer.scan_regexp(start_value='/')
+        p[0] = ast.RegEx(pattern=pattern, flags=flags)
+        
     #
     # 11. Expressions
 
@@ -233,13 +236,13 @@ class Parser(object):
 
     # TODO: add get / set 
     def p_PropertyAssignment(self, p):
-        """PropertyAssignment : PropertyName COLON AssignmentExpression
-                              | GET PropertyName \
-                                    LPAREN RPAREN \
-                                    LBRACE FunctionBody RBRACE
-                              | SET PropertyName \
-                                    LPAREN PropertySetParameterList RPAREN \
-                                    LBRACE FunctionBody RBRACE """
+        """PropertyAssignment : PropertyName COLON AssignmentExpression"""
+                              #| GET PropertyName \
+                              #      LPAREN RPAREN \
+                              #      LBRACE FunctionBody RBRACE
+                              #| SET PropertyName \
+                              #      LPAREN PropertySetParameterList RPAREN \
+                              #      LBRACE FunctionBody RBRACE """
         if len(p) == 4:
             p[0] = ast.Assign(node=p[1], operator=p[2], expression=p[3])
             
@@ -249,9 +252,9 @@ class Parser(object):
                         | NumericLiteral"""
         p[0] = p[1]
             
-    def p_PropertySetParameterList(self, p):
-        """PropertySetParameterList : Identifier """
-        p[0] = p[1]
+    #def p_PropertySetParameterList(self, p):
+    #    """PropertySetParameterList : Identifier """
+    #    p[0] = p[1]
         
     # 11.2 Left-Hand-Side Expressions
     # TODO
@@ -263,11 +266,13 @@ class Parser(object):
                             | NEW MemberExpression Arguments """
         if len(p) == 2:
             p[0] = p[1]
-        elif p[1] != 'new':
-            p[0] = ast.ElementGet(node=p[1], element=p[3])
-        else:
+        elif p[1] == 'new':
             p[0] == ast.New(identifier=p[1], arguments=p[3])
-
+        elif p[2] == '.':
+            p[0] = ast.DotAccessor(node=p[1], element=p[3])
+        else:
+            p[0] = ast.BracketAccessor(node=p[1], element=p[3])
+            
     def p_MemberExpressionNoBF(self, p):
         """MemberExpressionNoBF : PrimaryExpressionNoObj 
                                 | MemberExpressionNoBF LBRACKET Expression RBRACKET
@@ -275,12 +280,12 @@ class Parser(object):
                                 | NEW MemberExpression Arguments """
         if len(p) == 2:
             p[0] = p[1]
-            
-        elif p[1] != 'new':
-            p[0] = ast.ElementGet(node=p[1], element=p[3])
-
+        elif p[1] == 'new':
+            p[0] == ast.New(identifier=p[1], arguments=p[3])
+        elif p[2] == '.':
+            p[0] = ast.DotAccessor(node=p[1], element=p[3])
         else:
-            p[0] = ast.New(identifier=p[2], arguments=p[3])
+            p[0] = ast.BracketAccessor(node=p[1], element=p[3])
 
     def p_NewExpression(self, p):
         """NewExpression : MemberExpression
@@ -348,21 +353,21 @@ class Parser(object):
     # 11.3 Postfix Expressions
     def p_PostfixExpression(self, p): 
         """PostfixExpression : LeftHandSideExpression
-                             | LeftHandSideExpression INCR_NO_LT 
-                             | LeftHandSideExpression DECR_NO_LT"""
+                             | LeftHandSideExpression INCR
+                             | LeftHandSideExpression DECR"""
         if len(p) == 2:
             p[0] = p[1]
         else:
-            p[0] = ast.UnaryOp(operator=p[3], value=p[1], postfix=True)
+            p[0] = ast.UnaryOp(operator=p[2], value=p[1], postfix=True)
             
     def p_PostfixExpressionNoBF(self, p): 
         """PostfixExpressionNoBF : LeftHandSideExpressionNoBF
-                                 | LeftHandSideExpressionNoBF INCR_NO_LT
-                                 | LeftHandSideExpressionNoBF DECR_NO_LT"""
+                                 | LeftHandSideExpressionNoBF INCR
+                                 | LeftHandSideExpressionNoBF DECR"""
         if len(p) == 2:
             p[0] = p[1]
         else:
-            p[0] = ast.UnaryOp(operator=p[3], value=p[1], postfix=True)
+            p[0] = ast.UnaryOp(operator=p[2], value=p[1], postfix=True)
         
     # 11.4 Unary Operators
     def p_UnaryExpressionCommon(self, p):
@@ -770,9 +775,14 @@ class Parser(object):
         """Block : LBRACE StatementList_opt RBRACE"""
         p[0] = p[2]
 
+    # Add FunctionDeclaration although it is not in the standard, all the
+    # browsers do support it, and jquery javascript uses it for one function
     def p_StatementList(self, p):
         """StatementList : Statement
-                         | StatementList Statement"""
+                         | StatementList Statement
+                         | FunctionDeclaration
+                         | StatementList FunctionDeclaration"""
+                         
         p[0] = self.build_list(p, 1, 2)
             
     # 12.2 Variable Statement
@@ -831,7 +841,9 @@ class Parser(object):
     # 12.6 Iteration Statements   
     def p_IterationStatement_1(self, p):
         """IterationStatement : DO Statement WHILE LPAREN Expression RPAREN \
-                                SEMI"""
+                                SEMI
+                              | DO Statement WHILE LPAREN Expression RPAREN \
+                                auto_semicolon"""
         p[0] = ast.DoWhile(condition=p[5], statement=p[2])
         
     def p_IterationStatement_2(self, p):
@@ -859,7 +871,7 @@ class Parser(object):
                                     Expression RPAREN Statement
                               | FOR LPAREN VAR VariableDeclarationNoIn IN \
                                     Expression RPAREN Statement"""
-        if len(p) == 7:
+        if len(p) == 8:
             p[0] = ast.ForIn(item=p[3], iterator=p[5], statement=p[7])
         else:
             item = ast.VariableDeclaration(p[4], None)
@@ -963,18 +975,18 @@ class Parser(object):
         """FunctionDeclaration : FUNCTION Identifier \
                                     LPAREN FormalParameterList_opt RPAREN \
                                     LBRACE FunctionBody RBRACE"""
-        p[0] = ast.FuncDecl(p[1], p[4], p[7])
+        p[0] = ast.FuncDecl(node=p[1], parameters=p[4], statements=p[7])
         
     def p_FunctionExpression(self, p):
         """FunctionExpression : FUNCTION Identifier_opt \
                                     LPAREN FormalParameterList_opt RPAREN \
                                     LBRACE FunctionBody RBRACE """
         if len(p) == 9:
-            p[0] = ast.FuncDecl(name=p[2], parameters=p[4], statements=p[7])
+            p[0] = ast.FuncDecl(node=p[2], parameters=p[4], statements=p[7])
         elif len(p) == 8 and p[3] == '(':
-            p[0] = ast.FuncDecl(name=None, parameters=p[2], statements=p[6])
+            p[0] = ast.FuncDecl(node=None, parameters=p[2], statements=p[6])
         else:
-            p[0] = ast.FuncDecl(name=None, parameters=p[3], statements=p[6])
+            p[0] = ast.FuncDecl(node=None, parameters=p[3], statements=p[6])
         
     def p_FormalParameterList(self, p):
         """FormalParameterList : Identifier
@@ -1014,14 +1026,13 @@ class Parser(object):
      
     
 if __name__ == "__main__":
+    import sys
+    # 
     input = r"""
-    2 instanceof 1;
-    2+(+2);
-    2-(-1), 2*2
-    debugger;
+        var quickExpr=/^[^<]*(<(.|\s)+>)[^>]*$|^#(\w+)$/,isSimple=/^.[^:#\[\.]*$/;
     """
-    
-    parser = Parser()
+    input = open('jquery-1.3.2.js').read()
+    parser = Parser(debug='-d' in sys.argv)
     output = parser.parse(input)
     walker = ast.NodeVisitor()
     walker.visit(output)

@@ -197,6 +197,7 @@ class If(Node):
         self.expr = expression
         self.true = true
         self.false = false
+        self._repr_args = ['expr']
         self._fields = [true, false]
         
 
@@ -263,6 +264,7 @@ class While(Node):
 
 class With(Node):
     def __init__(self, expression, statement):
+        Node.__init__(self)
         self.expression = expression
         self.statement = statement
         self._fields = [expression, statement]
@@ -278,7 +280,7 @@ class LabelledStatement(Node):
 
    
 class FuncDecl(Node):
-    def __init__(self, name, parameters, statements):
+    def __init__(self, node, parameters, statements):
         Node.__init__(self)
         self.parameters = parameters
         self.statements = statements
@@ -291,7 +293,8 @@ class FuncCall(Node):
         Node.__init__(self)
         self.node = node
         self.arguments = arguments
-        self._repr_args = ['node', 'arguments']
+        self._fields = [node]
+        self._repr_args = ['arguments']
     
 class New(Node):
     def __init__(self, identifier, arguments=None):
