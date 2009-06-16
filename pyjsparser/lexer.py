@@ -99,7 +99,7 @@ class Lexer(object):
     regex_first_char  = r'(?:[^\n\r\[\\\/\*]|(?:\\.)|(?:\[[^\]]+\]))'
     regex_char        = r'(?:[^\n\r\[\\\/]|(?:\\.)|(?:\[[^\]]+\]))'
     t_regex_RE_BODY      = regex_first_char + regex_char + '*'
-    t_regex_RE_END    = r'/'
+    t_regex_RE_END    = r'/[aig]*'
     
     # Literals
     t_STRING_LITERAL    = (r'((?:"(?:[^"\\\n]|'+ escape_sequence +')*")|'
@@ -280,42 +280,21 @@ class Lexer(object):
         return self.prev_token and self.prev_token.type == 'LINE_TERMINATOR'
 
     def scan_regexp(self, start_value):
-        value = [start_value]
-        
-        # Based on webkit javascriptcore scanRegExp()
-        last_escape = False
-        in_brackets = False
-        
         self.lexer.begin('regex')
-        try:
-            while True:
-                token = self.token()
-                if not token or token.value in ['\n', '\r']:
-                    return None, None
+        token = self.token()
+        if token.type == 'RE_BODY':
+            pattern = token.value
+        
+        token = self.token()
+        if token.type != 'RE_END':
+            raise SyntaxError("Invalid Regular Expression")
+        flags = token.value[1:]
+        
+        self.lexer.begin('INITIAL')
+        return pattern, flags
+     
                 
-                if token.value != '/' or last_escape or in_brackets:
-                    if not last_escape:
-                        if token.value == '[' and not in_brackets:
-                            in_brackets = True
-                        elif token.value == ']' and in_brackets:
-                            in_brackets = False
-                    last_escape = not last_escape and token.value == '\\'
-                    value.append(token.value)
-                else:
-                    value.append(token.value)
-                    break
-            self.lexer.begin('INITIAL')
             
-            flags = ""
-            token = self.token()
-            if not token.type == 'ID':
-                self.next_tokens.append(token)
-            else:
-                flags = token.value;
-                
-            return "".join(value), "".join(flags)
-        finally:
-            self.lexer.begin('INITIAL')
     
 if __name__ == "__main__":
     lexer = Lexer()

@@ -1030,6 +1030,7 @@ if __name__ == "__main__":
     # 
     input = r"""
         var quickExpr=/^[^<]*(<(.|\s)+>)[^>]*$|^#(\w+)$/,isSimple=/^.[^:#\[\.]*$/;
+        return elem.filter&&elem.filter.indexOf("opacity=")>=0?(parseFloat(elem.filter.match(/opacity=([^)]*)/)[1])/100)+'':"";}name=name.replace(/-([a-z])/ig
     """
     input = open('jquery-1.3.2.js').read()
     parser = Parser(debug='-d' in sys.argv)
