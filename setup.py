@@ -20,6 +20,10 @@ setup(
     packages=['pyjsparser'],
     zip_safe=False,
     include_package_data=True,
+    test_suite = 'nose.collector',
+    setup_requires=[
+        'nose'
+    ],
     install_requires=[
         "ply>=3.2"  
     ],

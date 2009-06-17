@@ -12,12 +12,11 @@ import itertools
 import warnings
 
 import ply.lex
-from ply.lex import TOKEN, LexToken
 
 
 class Lexer(object):
-    
-    # Reserved keywords
+
+    # Keywords    
     keywords = (
         'FUNCTION', 'VAR', 'CONTINUE', 'RETURN', 'IF', 'ELSE', 'BREAK',
         'TRUE', 'FALSE', 'THIS', 'NEW', 'INSTANCEOF', 'IN', 'DELETE', 'TYPEOF',
@@ -25,7 +24,8 @@ class Lexer(object):
         'DEFAULT', 'FINALLY', 'CASE', 'WITH', 'DEBUGGER', 'SWITCH',
         # 'GET', 'SET', 
     )
-    
+
+    # Reserved keywords
     reserved_keywords = (
         'ABSTRACT', 'BOOLEAN', 'INTERFACE', 'STATIC', 'BOOLEAN', 'EXTENDS',
         'LONG', 'SUPER', 'BYTE', 'FINAL', 'NATIVE', 'SYNCHRONIZED', 'CHAR',
@@ -33,14 +33,18 @@ class Lexer(object):
         'CONST', 'IMPLEMENTS', 'PROTECTED', 'VOLATILE', 'DOUBLE', 'IMPORT',
         'PUBLIC', 'ENUM', 'INT', 'SHORT'
     )
+    
+    # Separate state when parsing a RegularExpressionLiteral
     states = (
         ('regex', 'exclusive'),
     )
     
+    # Other tokens
     tokens = (
 
         "ID",
         
+        # Comments
         'LINE_COMMENT', 'BLOCK_COMMENT', 
         
         # Delimeters
@@ -70,24 +74,25 @@ class Lexer(object):
         'AND_EQUALS', 'OR_EQUALS',      # &=  |=
         'XOR_EQUALS',                   # ^=
         
+        # These are also tokens which are used for Regular Expressions
         'DIVIDE', 'DIVIDE_EQUALS',      # /  /=
         
         # Separate tokens for postfix usage with [no line-terminator]
         'INCR_NO_LT', 'DECR_NO_LT',     # [no line-terminator] ++ --
         
-        
         # Types
         "STRING_LITERAL",
         "NUMBER_LITERAL",
         
-        # Regex state tokens
+        # Regex state tokens, these are only used when the parser is in the
+        # regex state
         'RE_BODY', 'RE_END',
     )
 
+    # Regex for identifiers
+    identifier      = r'[a-zA-Z_$][0-9a-zA-Z_$]*'
 
-    # Create regex tokens
-    identifier = r'[a-zA-Z_$][0-9a-zA-Z_$]*'
-    
+    # Strings
     line_break      = r'(?:\r|\n)+'
     white_space     = r'(?:\s|\t)+'
     simple_escape   = r'\\([-a-zA-Z\\?\'"])'
@@ -95,27 +100,28 @@ class Lexer(object):
     unicode_char    = r'\\(u[a-fA-F0-9]{4})'
     escape_sequence = r'('+ simple_escape + '|'+ hex_char +'|'+ unicode_char +')'
 
-    # Regex
+    # Match a regular expression literal (used in regex state)
     regex_first_char  = r'(?:[^\n\r\[\\\/\*]|(?:\\.)|(?:\[[^\]]+\]))'
     regex_char        = r'(?:[^\n\r\[\\\/]|(?:\\.)|(?:\[[^\]]+\]))'
     t_regex_RE_BODY      = regex_first_char + regex_char + '*'
     t_regex_RE_END    = r'/[aig]*'
     
     # Literals
-    t_STRING_LITERAL    = (r'((?:"(?:[^"\\\n]|'+ escape_sequence +')*")|'
-                            r"(?:'(?:[^'\\\n]|"+ escape_sequence +")*'))")
+    t_STRING_LITERAL    = (r'((?:"(?:[^"\\\n\r]|'+ escape_sequence +'|\\")*")|'
+                            r"(?:'(?:[^'\\\n\r]|"+ escape_sequence +"|\\')*'))")
 
-    t_NUMBER_LITERAL   = (r'(?:'                          
+    t_NUMBER_LITERAL   = (r'(?:'
+                            '(?:[0-9]+e[0-9]+)|'
                             '(?:[0-9]*\.[0-9]+(?:e?[0-9]+)?)|'  # .2e20
                             '(?:[0-9]+\.(?:e?[0-9]+)?)|'        # 2.e20     
                             '[0-9]+'                            # integer
                            ')')
 
     # Comments    
-    t_LINE_COMMENT  = r'//[^\n]*'
+    t_LINE_COMMENT  = r'//[^\r\n]*'
     t_BLOCK_COMMENT = r'/\*[^*]*\*+([^/*][^*]*\*+)*/'
     
-    # Delimeters
+    # Punctuators
     t_LPAREN    = r'\('
     t_RPAREN    = r'\)'
     t_LBRACKET  = r'\['
@@ -126,10 +132,6 @@ class Lexer(object):
     t_PERIOD    = r'\.'
     t_SEMI      = r';'
     t_COLON     = r':'
-    
-    t_CONDOP    = r'\?'
-    
-    # Operators
     t_TIMES_EQUALS      = r'\*='
     t_DIVIDE_EQUALS     = r'/='
     t_MOD_EQUALS        = r'%='
@@ -157,6 +159,7 @@ class Lexer(object):
     t_LOR               = r'\|\|'
     t_LAND              = r'&&'
     t_LNOT              = r'!'
+    t_CONDOP            = r'\?'
     t_LT                = r'<'
     t_GT                = r'>'
     t_LE                = r'<='
@@ -168,16 +171,56 @@ class Lexer(object):
     t_INCR              = r'\+\+'
     t_DECR              = r'--'
 
-    def __init__(self,):
-        self._prepare_tokens()
+    def t_INCR_NO_LT(self, t):
+        r'[\r\n]+\s*\+\+'
+        t.value = '++'
+        return t
+
+    def t_DECR_NO_LT(self, t):
+        r'[\r\n]+\s*--'
+        t.value = '--'
+        return t
+    
+    def t_LINE_TERMINATOR(self, t):
+        r'[\n\r]+(?!\s*(?:\+\+)|(?:--))'
+        # Hack for INCR_NO_LT / DECR_NO_LT
+        t.lineno += len(t.value)
+        return t
+
+    @ply.lex.TOKEN(identifier)
+    def t_ID(self, t):
+        if t.value in self.reserved_keywords_map:
+            warnings.warn("The identifier '%s' is a reserved keyword" % t.value)
+        t.type = self.keywords_map.get(t.value, "ID")
+        return t
+   
+    t_ignore = ' \t'
+
+    def t_error(self, t):
+        raise TypeError("Unknown text '%s', %d" % (t.value[:20], t.lineno))
+    
+    t_regex_ignore = ''    
+    def t_regex_error(self, t):
+        raise TypeError("Error parsing regular expression '%s', %d" % (
+            t.value[:20], t.lineno))
+    
+    
+    def __init__(self):
         self.lexer = None
-        self.lexer = ply.lex.lex(object=self, debug=0)
         self.next_tokens = []
         self.prev_token = None
         self.curr_token = None
+        self.keywords_map = {}
+        self.reserved_keywords_map = {}
+
+        self._prepare_tokens()
+        self.lexer = ply.lex.lex(object=self, debug=0)
         
     def _prepare_tokens(self):
-                
+        """Fill the keywords_map and reserved_keywords_map dictionaries
+        and append them to the tokens list
+        
+        """
         # Map the keywords and reserved keywords to a dict lcase => ucase
         self.keywords_map = {}
         for value in self.keywords:
@@ -187,44 +230,26 @@ class Lexer(object):
         for value in self.reserved_keywords:
             self.reserved_keywords_map[value.lower()] = value
         
-        
         # Add other tokens
         self.tokens = self.keywords + self.tokens
     
-    def t_INCR_NO_LT(self, t):
-        r'\n\s*\+\+'
-        t.value = '++'
-        return t
 
-    def t_DECR_NO_LT(self, t):
-        r'\n\s*--'
-        t.value = '--'
-        return t
-    
-    def t_LINE_TERMINATOR(self, t):
-        r'[\n\r]+(?!\s*(?:\+\+)|(?:--))'
-        # Hack for INCR_NO_LT / DECR_NO_LT
-        t.lineno += len(t.value)
-        return t
-    
-    t_ignore = ' \t'
-    
-    @TOKEN(identifier)
-    def t_ID(self, t):
-        if t.value in self.reserved_keywords_map:
-            warnings.warn("The identifier '%s' is a reserved keyword" % t.value)
-        t.type = self.keywords_map.get(t.value, "ID")
-        
-        return t
-    
-   
-    def t_error(self, t):
-        raise TypeError("Unknown text '%s', %d" % (t.value[:20], t.lineno))
+
+
 
     def input(self, input):
         self.lexer.input(input)
     
     def token(self):
+        """Return a token from the stream.
+        
+        This method serves as a proxy to the real lexer and allows us to:
+         - Reference the previous token
+         - Ignore tokens
+         - Automatically append semi colons after a few keywords which
+           do not allow a new-line (continue, break, return throw)
+        
+        """
         if self.next_tokens:
             return self.next_tokens.pop()
         
@@ -232,11 +257,8 @@ class Lexer(object):
             self.prev_token = self.curr_token
             self.curr_token = self.lexer.token()
             
-            if self.curr_token is None:
-                break
-            
-            if self.curr_token.type not in ('LINE_TERMINATOR',
-                                            'LINE_COMMENT', 'BLOCK_COMMENT'):
+            if self.curr_token is None or self.curr_token.type not in (
+                'LINE_TERMINATOR','LINE_COMMENT', 'BLOCK_COMMENT'):
                 break
             
             # When a token should not be followed by a lineTerminator token
@@ -245,7 +267,6 @@ class Lexer(object):
             if self.prev_token and self.prev_token.type in [
                 'CONTINUE', 'BREAK', 'RETURN', 'THROW']:
                 return self.create_semicolon_token(self.curr_token)
-                
         return self.curr_token
     
     
@@ -258,6 +279,7 @@ class Lexer(object):
                 break
         
     def create_semicolon_token(self, token):
+        """Create a LexToken instance for a semicolon."""
         asi_token = ply.lex.LexToken()
         asi_token.type = 'SEMI'
         asi_token.value = ';'
@@ -277,9 +299,16 @@ class Lexer(object):
             return self.create_semicolon_token(token)
         
     def prev_line_terminator(self):
+        """Return True if the previous token was a line terminator"""
         return self.prev_token and self.prev_token.type == 'LINE_TERMINATOR'
 
     def scan_regexp(self, start_value):
+        """Read a regular expression literal
+        
+        This method switches the lexer to the 'regex' state and parses
+        the tokens RE_BODY and RE_END.
+        
+        """
         self.lexer.begin('regex')
         token = self.token()
         if token.type == 'RE_BODY':
@@ -292,9 +321,7 @@ class Lexer(object):
         
         self.lexer.begin('INITIAL')
         return pattern, flags
-     
-                
-            
+
     
 if __name__ == "__main__":
     lexer = Lexer()

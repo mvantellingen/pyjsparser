@@ -104,17 +104,15 @@ class Parser(object):
         """auto_semicolon : error """
 
     def p_error(self, p):
-        print "FF ERROR", p,
-        
-        if False and (p and p.type != 'SEMI') or not p:
+        if (p and p.type != 'SEMI') or not p:
             next_token = self.lexer.auto_semicolon(p)
             if next_token:
                 self.yacc.errok()
                 return next_token
 
-        
-        raise SyntaxError("%r (%s) unexpected at %d:%d (after %r)" % (
-            p.value, p.type, p.lineno, p.lexpos, p.lexer.prev_token))
+        raise SyntaxError("%r (%s) unexpected at %d:%d (between %r and %r)" % (
+            p.value, p.type, p.lineno, p.lexpos, self.lexer.prev_token,
+            self.lexer.token()))
 
     #
     # 7. Lexical Conventions
@@ -1029,10 +1027,17 @@ if __name__ == "__main__":
     import sys
     # 
     input = r"""
-        var quickExpr=/^[^<]*(<(.|\s)+>)[^>]*$|^#(\w+)$/,isSimple=/^.[^:#\[\.]*$/;
-        return elem.filter&&elem.filter.indexOf("opacity=")>=0?(parseFloat(elem.filter.match(/opacity=([^)]*)/)[1])/100)+'':"";}name=name.replace(/-([a-z])/ig
+Ext.DomHelper = function() {
+    var foo = {
+        bar: 1,
+        foobar: 2
+    }
+    return foo;
+2}
     """
-    input = open('jquery-1.3.2.js').read()
+    
+    if (len(sys.argv) == 2 and '-d' not in sys.argv) or len(sys.argv) > 2:
+        input = open(sys.argv[1]).read()
     parser = Parser(debug='-d' in sys.argv)
     output = parser.parse(input)
     walker = ast.NodeVisitor()
