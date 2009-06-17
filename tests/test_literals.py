@@ -1,5 +1,23 @@
 from pyjsparser.parser import Parser
 
+def test_comments():
+    input = """
+    // line comment
+    /* foo /* foo
+     *
+     */
+    """
+    parser = Parser()
+    program = parser.parse(input)
+
+def test_null():
+    input = """
+        var p = null;
+        null;
+    """
+    parser = Parser()
+    program = parser.parse(input)
+        
 def test_number_simple():
     input = """
         1;
@@ -47,3 +65,25 @@ def test_regex():
     program = parser.parse(input)
     
 
+def test_object():
+    input = """
+    var obj = {
+        foo: 10,
+        bar: 20
+    };
+    obj.foo;
+    """
+    parser = Parser()
+    program = parser.parse(input)
+    
+def test_array():
+    input = """
+    var p = [1, 2, 3, 4]
+    p[1]
+    
+    // elision
+    var p = [,]
+    """
+    parser = Parser()
+    program = parser.parse(input)
+    

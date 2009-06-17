@@ -222,7 +222,7 @@ class Case(Node):
 
 class DefaultCase(Case):
     def __init__(self, statements):
-        Node.__init__('default', statements)
+        Case.__init__(self, 'default', statements)
 
 
 class For(Node):

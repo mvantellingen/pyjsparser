@@ -118,7 +118,7 @@ class Parser(object):
     # 7. Lexical Conventions
     # Only some are implemented currently, see lexer for more
 
-    # 7.4 Comments    
+    # 7.4 Comments (currently ignored by lexer token() method)
     def p_Comment(self, p):
         """Comment : SingleLineComment
                    | MultiLineComment """
@@ -309,7 +309,7 @@ class Parser(object):
     def p_CallExpression_2(self, p):
         """CallExpression : CallExpression LBRACKET Expression RBRACKET
                           | CallExpression PERIOD IdentifierName"""
-        if p[2] == '.':
+        if len(p) == 4:
             p[0] = ast.DotAccessor(node=p[1], element=p[3])
         else:
             p[0] = ast.BracketAccessor(node=p[1], element=p[3])
@@ -927,7 +927,7 @@ class Parser(object):
         
     def p_DefaultClause(self, p):
         """DefaultClause : DEFAULT COLON StatementList_opt"""
-        p[0] = ast.DefaultCase(identifier=p[1], statements=p[3])
+        p[0] = ast.DefaultCase(statements=p[3])
         
     # 12.12 Labelled Statements
     def p_LabelledStatement(self, p):
@@ -979,12 +979,7 @@ class Parser(object):
         """FunctionExpression : FUNCTION Identifier_opt \
                                     LPAREN FormalParameterList_opt RPAREN \
                                     LBRACE FunctionBody RBRACE """
-        if len(p) == 9:
-            p[0] = ast.FuncDecl(node=p[2], parameters=p[4], statements=p[7])
-        elif len(p) == 8 and p[3] == '(':
-            p[0] = ast.FuncDecl(node=None, parameters=p[2], statements=p[6])
-        else:
-            p[0] = ast.FuncDecl(node=None, parameters=p[3], statements=p[6])
+        p[0] = ast.FuncDecl(node=p[2], parameters=p[4], statements=p[7])
         
     def p_FormalParameterList(self, p):
         """FormalParameterList : Identifier
