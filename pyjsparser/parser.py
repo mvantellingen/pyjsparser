@@ -48,7 +48,11 @@ class Parser(object):
             self._create_opt_rule(rulename)
 
 
-        self.yacc = ply.yacc.yacc(module=self,  start='Program')
+        self.yacc = ply.yacc.yacc(module=self,
+                                  start='Program',
+                                  optimize=0,
+                                  tabmodule="tab_yacc")
+                                  
 
     
     # From plycparser:
@@ -67,7 +71,9 @@ class Parser(object):
         setattr(self.__class__, optrule.__name__, optrule)    
 
     def parse(self, input):
-        return self.yacc.parse(input, lexer=self.lexer, debug=self.debug)
+        return self.yacc.parse(input,
+                               lexer=self.lexer,
+                               debug=self.debug)
     
     # Precedence rules
     precedence = (

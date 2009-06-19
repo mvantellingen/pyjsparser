@@ -231,7 +231,9 @@ class Lexer(object):
         self.reserved_keywords_map = {}
 
         self._prepare_tokens()
-        self.lexer = ply.lex.lex(object=self, debug=0, reflags=re.UNICODE|re.VERBOSE)
+        self.lexer = ply.lex.lex(object=self, debug=0,
+                                 reflags=re.UNICODE|re.VERBOSE,
+                                 optimize=0, lextab='tab_lex')
         
     def _prepare_tokens(self):
         """Fill the keywords_map and reserved_keywords_map dictionaries
