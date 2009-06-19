@@ -9,6 +9,7 @@
     
 """
 import itertools
+import re
 import warnings
 
 import ply.lex
@@ -94,20 +95,38 @@ class Lexer(object):
 
     
     # StringLiteral
-    t_STRING_LITERAL = (r'('
-                        r'(?:"(?:[^"\\\n\r]|\\[-a-zA-Z\\?\'"]|\\x[a-fA-F0-9]{2}|\\u[a-fA-F0-9]{4})*?)"'
-                        r'|'
-                        r"(?:'(?:[^'\\\n\r]|\\[-a-zA-Z\\?'\"]|\\x[a-fA-F0-9]{2}|\\u[a-fA-F0-9]{4})*?)'"
-                        r')')
+    t_STRING_LITERAL = r"""
+    (
+        (?:"    # Double quoted strings
+            (?:
+                [^"\\\n\r] |            # No line terminators, escape chars or "
+                \\[-a-zA-Z\\?\'"] |     # Escaped characters 
+                \\x[a-fA-F0-9]{2} |     # Hex chars
+                \\u[a-fA-F0-9]{4}       # Unicode chars
+            )*?
+        )"
+        |
+        (?:'    # Single quoted strings
+            (?:
+                [^'\\\n\r] |            # No line terminators, escape chars or '
+                \\[-a-zA-Z\\?'\"] |     # Escaped characters
+                \\x[a-fA-F0-9]{2} |     # Hex chars
+                \\u[a-fA-F0-9]{4}       # Unicode chars
+            )*?
+        )'
+    )
+    """
 
     # NumberLiteral
-    t_NUMBER_LITERAL   = (r'(?:'
-                            '(?:0[xX][0-9a-fA-F]+)|'
-                            '(?:[0-9]+e[0-9]+)|'
-                            '(?:[0-9]*\.[0-9]+(?:e?[0-9]+)?)|'  # .2e20
-                            '(?:[0-9]+\.(?:e?[0-9]+)?)|'        # 2.e20     
-                            '[0-9]+'                            # integer
-                           ')')
+    t_NUMBER_LITERAL   = r"""
+        (?:
+            0[xX][0-9a-fA-F]+ |             # Hex digits
+            [0-9]+e[0-9]+ |                 # Exponent integer
+            [0-9]*\.[0-9]+(?:e?[0-9]+)? |   # .2e20
+            [0-9]+\.(?:e?[0-9]+) |          # 2.e20     
+            [0-9]+                          # integer
+        )
+    """
 
     # RegexLiteral (only in 'regex' state)
     regex_first_char  = r'(?:[^\n\r\[\\\/\*]|(?:\\.)|(?:\[[^\]]+\]))'
@@ -212,7 +231,7 @@ class Lexer(object):
         self.reserved_keywords_map = {}
 
         self._prepare_tokens()
-        self.lexer = ply.lex.lex(object=self, debug=0)
+        self.lexer = ply.lex.lex(object=self, debug=0, reflags=re.UNICODE|re.VERBOSE)
         
     def _prepare_tokens(self):
         """Fill the keywords_map and reserved_keywords_map dictionaries
