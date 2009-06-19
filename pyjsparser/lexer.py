@@ -92,30 +92,28 @@ class Lexer(object):
     # Regex for identifiers
     identifier      = r'[a-zA-Z_$][0-9a-zA-Z_$]*'
 
-    # Strings
-    line_break      = r'(?:\r|\n)+'
-    white_space     = r'(?:\s|\t)+'
-    simple_escape   = r'\\([-a-zA-Z\\?\'"])'
-    hex_char        = r'\\(x[a-fA-F0-9]{2})'
-    unicode_char    = r'\\(u[a-fA-F0-9]{4})'
-    escape_sequence = r'('+ simple_escape + '|'+ hex_char +'|'+ unicode_char +')'
-
-    # Match a regular expression literal (used in regex state)
-    regex_first_char  = r'(?:[^\n\r\[\\\/\*]|(?:\\.)|(?:\[[^\]]+\]))'
-    regex_char        = r'(?:[^\n\r\[\\\/]|(?:\\.)|(?:\[[^\]]+\]))'
-    t_regex_RE_BODY      = regex_first_char + regex_char + '*'
-    t_regex_RE_END    = r'/[aig]*'
     
-    # Literals
-    t_STRING_LITERAL    = (r'((?:"(?:[^"\\\n\r]|'+ escape_sequence +'|\\")*")|'
-                            r"(?:'(?:[^'\\\n\r]|"+ escape_sequence +"|\\')*'))")
+    # StringLiteral
+    t_STRING_LITERAL = (r'('
+                        r'(?:"(?:[^"\\\n\r]|\\[-a-zA-Z\\?\'"]|\\x[a-fA-F0-9]{2}|\\u[a-fA-F0-9]{4})*?)"'
+                        r'|'
+                        r"(?:'(?:[^'\\\n\r]|\\[-a-zA-Z\\?'\"]|\\x[a-fA-F0-9]{2}|\\u[a-fA-F0-9]{4})*?)'"
+                        r')')
 
+    # NumberLiteral
     t_NUMBER_LITERAL   = (r'(?:'
+                            '(?:0[xX][0-9a-fA-F]+)|'
                             '(?:[0-9]+e[0-9]+)|'
                             '(?:[0-9]*\.[0-9]+(?:e?[0-9]+)?)|'  # .2e20
                             '(?:[0-9]+\.(?:e?[0-9]+)?)|'        # 2.e20     
                             '[0-9]+'                            # integer
                            ')')
+
+    # RegexLiteral (only in 'regex' state)
+    regex_first_char  = r'(?:[^\n\r\[\\\/\*]|(?:\\.)|(?:\[[^\]]+\]))'
+    regex_char        = r'(?:[^\n\r\[\\\/]|(?:\\.)|(?:\[[^\]]+\]))'
+    t_regex_RE_BODY      = regex_first_char + regex_char + '*'
+    t_regex_RE_END    = r'/[aig]*'
 
     # Comments    
     t_LINE_COMMENT  = r'//[^\r\n]*'
@@ -325,8 +323,15 @@ class Lexer(object):
     
 if __name__ == "__main__":
     lexer = Lexer()
-    input = """
-    /opacity=([^)]*)/)[1])/100)+'':"";}name=name.replace(/-([a-z])/ig
+    input = r"""
+    "foo ";
+    "foo\"zar";
+    'xar';
+    'foo\'b ar';
+    'foo\' \'\' b"ar\'\'"\'"\'"';
+    "<" + ("div");
+
+    
             
     """
     #input = open('jquery-1.3.2.js').read()

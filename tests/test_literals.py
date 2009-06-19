@@ -1,7 +1,7 @@
 from pyjsparser.parser import Parser
 
 def test_comments():
-    input = """
+    input = r"""
     // line comment
     /* foo /* foo
      *
@@ -19,7 +19,7 @@ def test_null():
     program = parser.parse(input)
         
 def test_number_simple():
-    input = """
+    input = r"""
         1;
         1000;
         1000.0020;
@@ -28,9 +28,18 @@ def test_number_simple():
     """
     parser = Parser()
     program = parser.parse(input)
-    
+
+def test_number_hex():
+    input = r"""
+        0xabcdef
+        0XAbEfC
+    """
+    parser = Parser()
+    program = parser.parse(input)
+
+
 def test_number_complex():
-    input = """
+    input = r"""
         .100e1;
         .2e00;
         .2023e1;
@@ -43,12 +52,13 @@ def test_number_complex():
     
 
 def test_string():
-    input = """
+    input = r"""
     "foo ";
-    "foo\"bar";
-    'bar';
+    "foo\"zar";
+    'xar';
     'foo\'b ar';
     'foo\' \'\' b"ar\'\'"\'"\'"';
+    "<" + ("div");
     """
     parser = Parser()
     program = parser.parse(input)
@@ -66,7 +76,7 @@ def test_regex():
     
 
 def test_object():
-    input = """
+    input = r"""
     var obj = {
         foo: 10,
         bar: 20
@@ -77,7 +87,7 @@ def test_object():
     program = parser.parse(input)
     
 def test_array():
-    input = """
+    input = r"""
     var p = [1, 2, 3, 4]
     p[1]
     
