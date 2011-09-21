@@ -940,7 +940,7 @@ class Parser(object):
     # 12.12 Labelled Statements
     def p_LabelledStatement(self, p):
         """LabelledStatement : Identifier COLON Statement"""
-        p[0] = ast.LabelledStatement(identifier=p[1], statement=p[2])
+        p[0] = ast.LabelledStatement(identifier=p[1], statement=p[3])
 
     # 12.13 The throw Statement
     def p_ThrowStatement(self, p):
