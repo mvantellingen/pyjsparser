@@ -271,7 +271,7 @@ class Parser(object):
         if len(p) == 2:
             p[0] = p[1]
         elif p[1] == 'new':
-            p[0] == ast.New(identifier=p[1], arguments=p[3])
+            p[0] = ast.New(identifier=p[2], arguments=p[3])
         elif p[2] == '.':
             p[0] = ast.DotAccessor(node=p[1], element=p[3])
         else:
@@ -285,7 +285,7 @@ class Parser(object):
         if len(p) == 2:
             p[0] = p[1]
         elif p[1] == 'new':
-            p[0] == ast.New(identifier=p[1], arguments=p[3])
+            p[0] = ast.New(identifier=p[2], arguments=p[3])
         elif p[2] == '.':
             p[0] = ast.DotAccessor(node=p[1], element=p[3])
         else:
