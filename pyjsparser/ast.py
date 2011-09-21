@@ -276,7 +276,7 @@ class LabelledStatement(Node):
         self.identifier = identifier
         self.statement = statement
         self._fields = [statement]
-        self._repr_args = ['indentifier']
+        self._repr_args = ['identifier']
 
    
 class FuncDecl(Node):
