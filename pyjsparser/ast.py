@@ -323,7 +323,7 @@ class Break(Node):
     def __init__(self, identifier):
         Node.__init__(self)
         self.identifier = identifier
-        self._repr_args = ['name']
+        self._repr_args = ['identifier']
         
 
 class Throw(Node):
