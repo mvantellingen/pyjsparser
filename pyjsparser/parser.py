@@ -27,9 +27,10 @@ class Parser(object):
     The grammer contains 1 shift/reduce conflict caused by the if/else clause,
     which is harmless.
     """
-    def __init__(self, debug=False):
+    def __init__(self, debug=False, tracking=False):
         self.lexer = Lexer()
         self.debug = debug 
+        self.tracking = tracking
         self.tokens = self.lexer.tokens
         optionals = (
             'FormalParameterList',
@@ -73,7 +74,8 @@ class Parser(object):
     def parse(self, input):
         return self.yacc.parse(input,
                                lexer=self.lexer,
-                               debug=self.debug)
+                               debug=self.debug,
+                               tracking=self.tracking)
     
     # Precedence rules
     precedence = (
@@ -1039,7 +1041,7 @@ Ext.DomHelper = function() {
     
     if (len(sys.argv) == 2 and '-d' not in sys.argv) or len(sys.argv) > 2:
         input = open(sys.argv[1]).read()
-    parser = Parser(debug='-d' in sys.argv)
+    parser = Parser(debug='-d' in sys.argv, tracking=True)
     output = parser.parse(input)
     walker = ast.NodeVisitor()
     walker.visit(output)

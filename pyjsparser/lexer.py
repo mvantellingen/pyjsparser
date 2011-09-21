@@ -341,6 +341,14 @@ class Lexer(object):
         self.lexer.begin('INITIAL')
         return pattern, flags
 
+    @property
+    def lineno(self):
+        return self.lexer and self.lexer.lineno
+
+    @property
+    def lexpos(self):
+        return self.lexer and self.lexer.lexpos
+
     
 if __name__ == "__main__":
     lexer = Lexer()
