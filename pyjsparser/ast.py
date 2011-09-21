@@ -282,6 +282,7 @@ class LabelledStatement(Node):
 class FuncDecl(Node):
     def __init__(self, node, parameters, statements):
         Node.__init__(self)
+        self.node = node
         self.parameters = parameters
         self.statements = statements
         self._fields = [statements]

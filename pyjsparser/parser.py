@@ -979,7 +979,7 @@ class Parser(object):
         """FunctionDeclaration : FUNCTION Identifier \
                                     LPAREN FormalParameterList_opt RPAREN \
                                     LBRACE FunctionBody RBRACE"""
-        p[0] = ast.FuncDecl(node=p[1], parameters=p[4], statements=p[7])
+        p[0] = ast.FuncDecl(node=p[2], parameters=p[4], statements=p[7])
         
     def p_FunctionExpression(self, p):
         """FunctionExpression : FUNCTION Identifier_opt \
