@@ -1,3 +1,4 @@
+from pyjsparser import ast
 from pyjsparser.parser import Parser
 
 def test_if():
@@ -89,6 +90,23 @@ def test_switch():
     """
     parser = Parser()
     program = parser.parse(input)
+
+    assert len(program.statements[0].cases) == 5
+    assert isinstance(program.statements[0].default, ast.DefaultCase)
+
+def test_switch_last_default():
+    input = """
+    switch(100) {
+        case 100:
+        default: {
+            break;
+        }
+    }
+    """
+    parser = Parser()
+    program = parser.parse(input)
+
+    assert isinstance(program.statements[0].default, ast.DefaultCase)
     
 def test_continue():
     input = """
@@ -247,4 +265,3 @@ def test_new():
     """
     parser = Parser()
     program = parser.parse(input)    
-    

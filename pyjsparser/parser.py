@@ -910,11 +910,13 @@ class Parser(object):
         """SwitchStatement : SWITCH LPAREN Expression RPAREN CaseBlock"""
         cases = []
         default = None
+
         for item in p[5]:
             if isinstance(item, list):
                 cases.extend(item)
-            else:
+            elif isinstance(item, ast.DefaultCase):
                 default = item
+
         p[0] = ast.Switch(p[3], cases=cases, default=default)
                 
      
