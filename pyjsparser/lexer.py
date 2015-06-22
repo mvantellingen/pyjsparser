@@ -201,7 +201,7 @@ class Lexer(object):
     def t_LINE_TERMINATOR(self, t):
         r'[\n\r]+(?!\s*(?:\+\+)|(?:--))'
         # Hack for INCR_NO_LT / DECR_NO_LT
-        t.lineno += len(t.value)
+        t.lexer.lineno += len(t.value)
         return t
 
     @ply.lex.TOKEN(identifier)
@@ -340,6 +340,14 @@ class Lexer(object):
         
         self.lexer.begin('INITIAL')
         return pattern, flags
+
+    @property
+    def lineno(self):
+        return self.lexer and self.lexer.lineno
+
+    @property
+    def lexpos(self):
+        return self.lexer and self.lexer.lexpos
 
     
 if __name__ == "__main__":

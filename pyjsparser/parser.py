@@ -27,9 +27,10 @@ class Parser(object):
     The grammer contains 1 shift/reduce conflict caused by the if/else clause,
     which is harmless.
     """
-    def __init__(self, debug=False):
+    def __init__(self, debug=False, tracking=False):
         self.lexer = Lexer()
         self.debug = debug 
+        self.tracking = tracking
         self.tokens = self.lexer.tokens
         optionals = (
             'FormalParameterList',
@@ -73,7 +74,8 @@ class Parser(object):
     def parse(self, input):
         return self.yacc.parse(input,
                                lexer=self.lexer,
-                               debug=self.debug)
+                               debug=self.debug,
+                               tracking=self.tracking)
     
     # Precedence rules
     precedence = (
@@ -271,7 +273,7 @@ class Parser(object):
         if len(p) == 2:
             p[0] = p[1]
         elif p[1] == 'new':
-            p[0] == ast.New(identifier=p[1], arguments=p[3])
+            p[0] = ast.New(identifier=p[2], arguments=p[3])
         elif p[2] == '.':
             p[0] = ast.DotAccessor(node=p[1], element=p[3])
         else:
@@ -285,7 +287,7 @@ class Parser(object):
         if len(p) == 2:
             p[0] = p[1]
         elif p[1] == 'new':
-            p[0] == ast.New(identifier=p[1], arguments=p[3])
+            p[0] = ast.New(identifier=p[2], arguments=p[3])
         elif p[2] == '.':
             p[0] = ast.DotAccessor(node=p[1], element=p[3])
         else:
@@ -908,11 +910,13 @@ class Parser(object):
         """SwitchStatement : SWITCH LPAREN Expression RPAREN CaseBlock"""
         cases = []
         default = None
+
         for item in p[5]:
             if isinstance(item, list):
                 cases.extend(item)
-            else:
+            elif isinstance(item, ast.DefaultCase):
                 default = item
+
         p[0] = ast.Switch(p[3], cases=cases, default=default)
                 
      
@@ -938,7 +942,7 @@ class Parser(object):
     # 12.12 Labelled Statements
     def p_LabelledStatement(self, p):
         """LabelledStatement : Identifier COLON Statement"""
-        p[0] = ast.LabelledStatement(identifier=p[1], statement=p[2])
+        p[0] = ast.LabelledStatement(identifier=p[1], statement=p[3])
 
     # 12.13 The throw Statement
     def p_ThrowStatement(self, p):
@@ -979,7 +983,7 @@ class Parser(object):
         """FunctionDeclaration : FUNCTION Identifier \
                                     LPAREN FormalParameterList_opt RPAREN \
                                     LBRACE FunctionBody RBRACE"""
-        p[0] = ast.FuncDecl(node=p[1], parameters=p[4], statements=p[7])
+        p[0] = ast.FuncDecl(node=p[2], parameters=p[4], statements=p[7])
         
     def p_FunctionExpression(self, p):
         """FunctionExpression : FUNCTION Identifier_opt \
@@ -1039,7 +1043,7 @@ Ext.DomHelper = function() {
     
     if (len(sys.argv) == 2 and '-d' not in sys.argv) or len(sys.argv) > 2:
         input = open(sys.argv[1]).read()
-    parser = Parser(debug='-d' in sys.argv)
+    parser = Parser(debug='-d' in sys.argv, tracking=True)
     output = parser.parse(input)
     walker = ast.NodeVisitor()
     walker.visit(output)

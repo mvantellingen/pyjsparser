@@ -30,6 +30,6 @@ setup(
     classifiers=[
         "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: BSD License",
-        "Programming Language :: JavaScript",
+        "Programming Language :: Python",
     ]
 )

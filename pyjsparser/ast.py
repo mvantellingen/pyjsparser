@@ -276,12 +276,13 @@ class LabelledStatement(Node):
         self.identifier = identifier
         self.statement = statement
         self._fields = [statement]
-        self._repr_args = ['indentifier']
+        self._repr_args = ['identifier']
 
    
 class FuncDecl(Node):
     def __init__(self, node, parameters, statements):
         Node.__init__(self)
+        self.node = node
         self.parameters = parameters
         self.statements = statements
         self._fields = [statements]
@@ -322,7 +323,7 @@ class Break(Node):
     def __init__(self, identifier):
         Node.__init__(self)
         self.identifier = identifier
-        self._repr_args = ['name']
+        self._repr_args = ['identifier']
         
 
 class Throw(Node):
